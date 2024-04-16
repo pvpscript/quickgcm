@@ -80,7 +80,7 @@ class QuickGCM {
             await this.#generateKey();
         }
 
-        return await crypto.subtle.exportKey(format, this.#key);
+        return crypto.subtle.exportKey(format, this.#key);
     }
 
     #hexToArrayBuffer(data) {
@@ -96,11 +96,11 @@ class QuickGCM {
     }
 
     async rawKey() {
-        return await this.#getKey('raw');
+        return this.#getKey('raw');
     }
 
     async jwkKey() {
-        return await this.#getKey('jwk');
+        return this.#getKey('jwk');
     }
 
     async #encrypt(data) {
@@ -119,11 +119,12 @@ class QuickGCM {
     }
 
     async encryptRaw(data) {
-        return await this.#encrypt(data);
+        return this.#encrypt(data);
     }
 
     async encryptToHex(data) {
         const encrypted = await this.#encrypt(data);
+
         const asArray = new Uint8Array(encrypted.encryptedData);
 
         const hex = Array.from(asArray)
@@ -133,7 +134,7 @@ class QuickGCM {
     }
 
     async #decrypt(data, iv, key = this.#key) {
-        return await crypto.subtle.decrypt(
+        return crypto.subtle.decrypt(
             { name: this.#ALGORITHM, iv: iv },
             key,
             data,
@@ -141,27 +142,25 @@ class QuickGCM {
     }
 
     async decryptRaw(data, iv, key = this.#key) {
-        return await this.#decrypt(data, iv, key);
+        return this.#decrypt(data, iv, key);
     }
 
     async decryptRawToString(data, iv, key = this.#key) {
-        const raw = await this.#decrypt(data, iv, key);
-
-        return this.#dec.decode(raw);
+        return this.#decrypt(data, iv, key)
+            .then(raw => this.#dec.decode(raw));
     }
 
     async decryptHexRaw(data, iv, key = this.#key) {
         const bufferData = this.#hexToArrayBuffer(data)
 
-        return await this.#decrypt(bufferData, iv, key);
+        return this.#decrypt(bufferData, iv, key);
     }
 
     async decryptHexToString(data, iv, key = this.#key) {
         const bufferData = this.#hexToArrayBuffer(data)
 
-        const raw = await this.#decrypt(bufferData, iv, key);
-
-        return this.#dec.decode(raw);
+        return this.#decrypt(bufferData, iv, key)
+            .then(raw => this.#dec.decode(raw));
     }
 }
 
