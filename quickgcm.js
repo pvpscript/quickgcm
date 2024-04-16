@@ -84,15 +84,14 @@ class QuickGCM {
     }
 
     #hexToArrayBuffer(data) {
-        let size = data.length / 2;
-        let buf = new Uint8Array(size);
+        assert(data.length % 2 == 0, 'Invalid hex length. It must be a power of 2');
 
-        for (let i = 0, j = 0; i < size; i++, j += 2) {
-            const value = parseInt(data.slice(j, j + 2), 16);
-            buf[i] = value;
-        }
+        const bytePairs = data.match(/..?/g);
 
-        return buf;
+        return bytePairs.reduce((buf, value, i) => {
+            buf[i] = parseInt(value, 16);
+            return buf;
+        }, new Uint8Array(bytePairs.length));
     }
 
     async rawKey() {
