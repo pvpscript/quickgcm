@@ -7,16 +7,31 @@ class QuickGCM {
         'wrapKey',
         'unwrapKey',
     ];
+    #ALLOWED_HASHES = [
+        'SHA-1',
+        'SHA-256',
+        'SHA-384',
+        'SHA-512',
+    ];
 
     #enc = new TextEncoder();
     #dec = new TextDecoder();
 
     #keyLength;
     #keyUsages;
+    #hash;
+    #hashIterations;
+    #saltLength;
+
     #key;
+    #salt;
 
     #isAllowedKeyLength(length) {
         return this.#ALLOWED_KEY_LENGTHS.includes(length);
+    }
+
+    #isAllowedHash(hash) {
+        return this.#ALLOWED_HASHES.includes(hash);
     }
 
     #checkKeyUsages(usages) {
@@ -34,7 +49,7 @@ class QuickGCM {
         };
     }
 
-    constructor(keyLength, keyUsages) {
+    constructor(keyLength, keyUsages, hash, hashIterations, saltLength, password, salt) {
         if (!this.#isAllowedKeyLength(keyLength)) {
             throw Error(`Key length of "${keyLength}" is not allowed.`);
         }
@@ -44,13 +59,26 @@ class QuickGCM {
             throw Error(`Key usages of "[${keyUsageData.unknown}]" are unknown or not allowed.`);
         }
 
+        if (!this.#isAllowedHash(hash)) {
+            throw Error(`Hash digest "${hash}" not allowed.`);
+        }
+
+        if (password == null) {
+            throw Error('Password must not be null.');
+        }
+
         this.#keyLength = keyLength;
         this.#keyUsages = keyUsages;
+        this.#hash = hash;
+        this.#hashIterations = hashIterations;
+        this.#saltLength = saltLength;
+
+        this.#key = this.#deriveKey(password, salt);
     }
 
     // Returns a new instance of QuickGCM with a 256 bits key that can be used to encrypt and decrypt data.
-    static basicUsage() {
-        return new QuickGCM(256, ['encrypt', 'decrypt']);
+    static basicUsage(password, salt = crypto.getRandomValues(new Uint8Array(32))) {
+        return new QuickGCM(256, ['encrypt', 'decrypt'], 'SHA-512', 1e5, 32, password, salt);
     }
 
     #encodeData(data) {
@@ -61,14 +89,34 @@ class QuickGCM {
         return this.#dec.decode(data);
     }
 
-    async #generateKey() {
-        this.#key = await crypto.subtle.generateKey(
+    async #baseKey(password) {
+        return crypto.subtle.importKey(
+            'raw',
+            this.#encodeData(password),
+            'PBKDF2',
+            false,
+            ['deriveKey'],
+        );
+    }
+
+    async #deriveKey(password, salt) {
+        const baseKey = await this.#baseKey(password);
+        const algorithm = {
+            name: 'PBKDF2',
+            hash: this.#hash,
+            salt: salt,
+            iterations: this.#hashIterations,
+        };
+
+        this.#key = await crypto.subtle.deriveKey(
+            algorithm,
+            baseKey, 
             { name: this.#ALGORITHM, length: this.#keyLength },
             true,
             this.#keyUsages,
         );
 
-        return this.#key;
+        return this.#key
     }
 
     #generateIV() {
@@ -76,10 +124,6 @@ class QuickGCM {
     }
     
     async #getKey(format) {
-        if (typeof this.#key === 'undefined') {
-            await this.#generateKey();
-        }
-
         return crypto.subtle.exportKey(format, this.#key);
     }
 
@@ -103,10 +147,6 @@ class QuickGCM {
     }
 
     async #encrypt(data) {
-        if (typeof this.#key === 'undefined') {
-            await this.#generateKey();
-        }
-
         const iv = this.#generateIV();
         const encryptedData = await crypto.subtle.encrypt(
             { name: this.#ALGORITHM, iv: iv },
@@ -121,13 +161,17 @@ class QuickGCM {
         return this.#encrypt(data);
     }
 
+    #typedArrayToHex(buffer) {
+        const asArray = new Uint8Array(encrypted.encryptedData);
+
+        return Array.from(asArray)
+            .map(v => ('0' + v.toString(16)).slice(-2)).join('');
+    }
+
     async encryptToHex(data) {
         const encrypted = await this.#encrypt(data);
 
-        const asArray = new Uint8Array(encrypted.encryptedData);
-
-        const hex = Array.from(asArray)
-            .map(v => ('0' + v.toString(16)).slice(-2)).join('');
+        const hex = this.#typedArrayToHex(encrypted.encryptedData);
 
         return { hex, iv: encrypted.iv };
     }
