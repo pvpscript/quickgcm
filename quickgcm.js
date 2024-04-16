@@ -15,25 +15,6 @@ class QuickGCM {
     #keyUsages;
     #key;
 
-    constructor(keyLength, keyUsages) {
-        if (!this.#isAllowedKeyLength(keyLength)) {
-            throw Error(`Key length of "${keyLength}" is not allowed.`);
-        }
-
-        const keyUsageData = this.#checkKeyUsages(keyUsages);
-        if (keyUsageData.error) {
-            throw Error(`Key usages of "${keyUsageData.unknown}" are unknown or not allowed.`);
-        }
-
-        this.#keyLength = keyLength;
-        this.#keyUsages = keyUsages;
-    }
-
-    // Returns a new instance of QuickGCM with a 256 bits key that can be used to encrypt and decrypt data.
-    static basicUsage() {
-        return new QuickGCM(256, ['encrypt', 'decrypt']);
-    }
-
     #isAllowedKeyLength(length) {
         return this.#ALLOWED_KEY_LENGTHS.includes(length);
     }
@@ -51,6 +32,25 @@ class QuickGCM {
             error: unknown.length > 0,
             unknown,
         };
+    }
+
+    constructor(keyLength, keyUsages) {
+        if (!this.#isAllowedKeyLength(keyLength)) {
+            throw Error(`Key length of "${keyLength}" is not allowed.`);
+        }
+
+        const keyUsageData = this.#checkKeyUsages(keyUsages);
+        if (keyUsageData.error) {
+            throw Error(`Key usages of "[${keyUsageData.unknown}]" are unknown or not allowed.`);
+        }
+
+        this.#keyLength = keyLength;
+        this.#keyUsages = keyUsages;
+    }
+
+    // Returns a new instance of QuickGCM with a 256 bits key that can be used to encrypt and decrypt data.
+    static basicUsage() {
+        return new QuickGCM(256, ['encrypt', 'decrypt']);
     }
 
     #encodeData(data) {
@@ -81,6 +81,18 @@ class QuickGCM {
         }
 
         return await crypto.subtle.exportKey(format, this.#key);
+    }
+
+    #hexToArrayBuffer(data) {
+        let size = data.length / 2;
+        let buf = new Uint8Array(size);
+
+        for (let i = 0, j = 0; i < size; i++, j += 2) {
+            const value = parseInt(data.slice(j, j + 2), 16);
+            buf[i] = value;
+        }
+
+        return buf;
     }
 
     async rawKey() {
@@ -136,18 +148,6 @@ class QuickGCM {
         const raw = await this.#decrypt(data, iv, key);
 
         return this.#dec.decode(raw);
-    }
-
-    #hexToArrayBuffer(data) {
-        let size = data.length / 2;
-        let buf = new Uint8Array(size);
-
-        for (let i = 0, j = 0; i < size; i++, j += 2) {
-            const value = parseInt(data.slice(j, j + 2), 16);
-            buf[i] = value;
-        }
-
-        return buf;
     }
 
     async decryptHexRaw(data, iv, key = this.#key) {
