@@ -146,7 +146,7 @@ class QuickGCM {
 
     async decryptRawToString(data, iv, key = this.#key) {
         return this.#decrypt(data, iv, key)
-            .then(raw => this.#dec.decode(raw));
+            .then(raw => this.#decodeData(raw));
     }
 
     async decryptHexRaw(data, iv, key = this.#key) {
@@ -159,7 +159,7 @@ class QuickGCM {
         const bufferData = this.#hexToArrayBuffer(data)
 
         return this.#decrypt(bufferData, iv, key)
-            .then(raw => this.#dec.decode(raw));
+            .then(raw => this.#decodeData(raw));
     }
 }
 
