@@ -19,8 +19,10 @@ class QuickGCM {
         if (!this.#isAllowedKeyLength(keyLength)) {
             throw Error(`Key length of "${keyLength}" is not allowed.`);
         }
-        if (!this.#isAllowedKeyUsage(keyUsages)) {
-            throw Error(`Some or all key usages of "${keyUsages}" are not allowed.`);
+
+        const keyUsageData = this.#checkKeyUsages(keyUsages);
+        if (keyUsageData.error) {
+            throw Error(`Key usages of "${keyUsageData.unknown}" are unknown or not allowed.`);
         }
 
         this.#keyLength = keyLength;
@@ -32,15 +34,23 @@ class QuickGCM {
         return new QuickGCM(256, ['encrypt', 'decrypt']);
     }
 
-    #containsAll(arr, values) {
-        return values.every(v => arr.includes(v));
-    }
-
     #isAllowedKeyLength(length) {
         return this.#ALLOWED_KEY_LENGTHS.includes(length);
     }
-    #isAllowedKeyUsage(usage) {
-        return this.#containsAll(this.#ALLOWED_KEY_USAGES, usage);
+
+    #checkKeyUsages(usages) {
+        const unknown = usages.reduce((unknown, current) => {
+            if (!this.#ALLOWED_KEY_USAGES.includes(current)) {
+                unknown.push(current);
+            }
+
+            return unknown;
+        }, []);
+
+        return {
+            error: unknown.length > 0,
+            unknown,
+        };
     }
 
     #encodeData(data) {
