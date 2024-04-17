@@ -1,84 +1,20 @@
 class QuickGCM {
     #ALGORITHM = 'AES-GCM';
-    #ALLOWED_KEY_LENGTHS = [128, 192, 256];
-    #ALLOWED_KEY_USAGES = [
-        'encrypt',
-        'decrypt',
-        'wrapKey',
-        'unwrapKey',
-    ];
-    #ALLOWED_HASHES = [
-        'SHA-1',
-        'SHA-256',
-        'SHA-384',
-        'SHA-512',
-    ];
+    #IV_LENGTH = 12;
 
     #enc = new TextEncoder();
     #dec = new TextDecoder();
 
-    #keyLength;
-    #keyUsages;
-    #hash;
-    #hashIterations;
-    #saltLength;
-
     #key;
     #salt;
 
-    #isAllowedKeyLength(length) {
-        return this.#ALLOWED_KEY_LENGTHS.includes(length);
-    }
+    constructor() {}
 
-    #isAllowedHash(hash) {
-        return this.#ALLOWED_HASHES.includes(hash);
-    }
+    async init(password, salt) {
+        this.#salt = salt || this.#generateSalt();
+        this.#key = await this.#deriveKey(password, this.#salt);
 
-    #checkKeyUsages(usages) {
-        const unknown = usages.reduce((unknown, current) => {
-            if (!this.#ALLOWED_KEY_USAGES.includes(current)) {
-                unknown.push(current);
-            }
-
-            return unknown;
-        }, []);
-
-        return {
-            error: unknown.length > 0,
-            unknown,
-        };
-    }
-
-    constructor(keyLength, keyUsages, hash, hashIterations, saltLength, password, salt) {
-        if (!this.#isAllowedKeyLength(keyLength)) {
-            throw Error(`Key length of "${keyLength}" is not allowed.`);
-        }
-
-        const keyUsageData = this.#checkKeyUsages(keyUsages);
-        if (keyUsageData.error) {
-            throw Error(`Key usages of "[${keyUsageData.unknown}]" are unknown or not allowed.`);
-        }
-
-        if (!this.#isAllowedHash(hash)) {
-            throw Error(`Hash digest "${hash}" not allowed.`);
-        }
-
-        if (password == null) {
-            throw Error('Password must not be null.');
-        }
-
-        this.#keyLength = keyLength;
-        this.#keyUsages = keyUsages;
-        this.#hash = hash;
-        this.#hashIterations = hashIterations;
-        this.#saltLength = saltLength;
-
-        this.#key = this.#deriveKey(password, salt);
-    }
-
-    // Returns a new instance of QuickGCM with a 256 bits key that can be used to encrypt and decrypt data.
-    static basicUsage(password, salt = crypto.getRandomValues(new Uint8Array(32))) {
-        return new QuickGCM(256, ['encrypt', 'decrypt'], 'SHA-512', 1e5, 32, password, salt);
+        return this.#salt;
     }
 
     #encodeData(data) {
@@ -103,31 +39,36 @@ class QuickGCM {
         const baseKey = await this.#baseKey(password);
         const algorithm = {
             name: 'PBKDF2',
-            hash: this.#hash,
-            salt: salt,
-            iterations: this.#hashIterations,
+            hash: 'SHA-512',
+            salt: this.#salt,
+            iterations: 1e5,
         };
 
-        this.#key = await crypto.subtle.deriveKey(
+        return crypto.subtle.deriveKey(
             algorithm,
             baseKey, 
-            { name: this.#ALGORITHM, length: this.#keyLength },
+            { name: this.#ALGORITHM, length: 256 },
             true,
-            this.#keyUsages,
+            ['encrypt', 'decrypt'],
         );
+    }
 
-        return this.#key
+    #generateSalt() {
+        return crypto.getRandomValues(new Uint8Array(128));
     }
 
     #generateIV() {
-        return crypto.getRandomValues(new Uint8Array(12));
-    }
-    
-    async #getKey(format) {
-        return crypto.subtle.exportKey(format, this.#key);
+        return crypto.getRandomValues(new Uint8Array(this.#IV_LENGTH));
     }
 
-    #hexToArrayBuffer(data) {
+    #typedArrayToHex(buffer) {
+        const asArray = new Uint8Array(buffer);
+
+        return Array.from(asArray)
+            .map(v => ('0' + v.toString(16)).slice(-2)).join('');
+    }
+
+    #hexToUint8Array(data) {
         assert(data.length % 2 == 0, 'Invalid hex length. It must be a power of 2');
 
         const bytePairs = data.match(/..?/g);
@@ -138,72 +79,51 @@ class QuickGCM {
         }, new Uint8Array(bytePairs.length));
     }
 
-    async rawKey() {
-        return this.#getKey('raw');
-    }
-
-    async jwkKey() {
-        return this.#getKey('jwk');
-    }
-
     async #encrypt(data) {
         const iv = this.#generateIV();
         const encryptedData = await crypto.subtle.encrypt(
             { name: this.#ALGORITHM, iv: iv },
             this.#key,
             this.#encodeData(data),
-        );
+        ).then(encrypted => new Uint8Array(encrypted));
 
         return { encryptedData, iv };
     }
 
-    async encryptRaw(data) {
-        return this.#encrypt(data);
-    }
-
-    #typedArrayToHex(buffer) {
-        const asArray = new Uint8Array(encrypted.encryptedData);
-
-        return Array.from(asArray)
-            .map(v => ('0' + v.toString(16)).slice(-2)).join('');
-    }
-
-    async encryptToHex(data) {
+    async encrypt(data) {
         const encrypted = await this.#encrypt(data);
+        const bufLength = encrypted.encryptedData.length + encrypted.iv.length;
 
-        const hex = this.#typedArrayToHex(encrypted.encryptedData);
+        const fullData = new Uint8Array(bufLength);
 
-        return { hex, iv: encrypted.iv };
+        fullData.set(encrypted.iv, 0);
+        fullData.set(encrypted.encryptedData, encrypted.iv.length);
+
+        return this.#typedArrayToHex(fullData);
     }
 
-    async #decrypt(data, iv, key = this.#key) {
+    async #decrypt(data, iv) {
         return crypto.subtle.decrypt(
             { name: this.#ALGORITHM, iv: iv },
-            key,
+            this.#key,
             data,
         );
     }
 
-    async decryptRaw(data, iv, key = this.#key) {
-        return this.#decrypt(data, iv, key);
+    async decrypt(data) {
+        const rawData = this.#hexToUint8Array(data);
+
+        const iv = rawData.slice(0, this.#IV_LENGTH);
+        const encrypted = rawData.slice(this.#IV_LENGTH);
+
+        const decrypted = await this.#decrypt(encrypted, iv);
+
+        return this.#decrypt(encrypted, iv)
+            .then(decrypted => this.#decodeData(decrypted));
     }
 
-    async decryptRawToString(data, iv, key = this.#key) {
-        return this.#decrypt(data, iv, key)
-            .then(raw => this.#decodeData(raw));
-    }
-
-    async decryptHexRaw(data, iv, key = this.#key) {
-        const bufferData = this.#hexToArrayBuffer(data)
-
-        return this.#decrypt(bufferData, iv, key);
-    }
-
-    async decryptHexToString(data, iv, key = this.#key) {
-        const bufferData = this.#hexToArrayBuffer(data)
-
-        return this.#decrypt(bufferData, iv, key)
-            .then(raw => this.#decodeData(raw));
+    get salt() {
+        return this.#salt;
     }
 }
 
