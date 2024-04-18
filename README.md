@@ -26,7 +26,16 @@ This section describes how to install QuickGCM as a NodeJS package and how to us
 standalone script.
 
 ### For NPM
--
+Install the package using the following command
+```sh
+npm install quickgcm
+```
+
+Import it in your project and have fun!
+```javascript
+const QuickGCM = require('quickgcm');
+...
+```
 
 ### For Browsers
 To use in your browser, you can simply use the `quickgcm.js` file removing its last line,
