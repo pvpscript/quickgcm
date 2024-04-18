@@ -15,10 +15,12 @@ class QuickGCM {
             throw TypeError('Password field must not be null.');
         }
 
-        this.#salt = salt || this.#generateSalt();
+        const saltArr = salt && this.#hexToUint8Array(salt);
+
+        this.#salt = saltArr || this.#generateSalt();
         this.#key = await this.#deriveKey(password, this.#salt);
 
-        return this.#salt;
+        return this.#typedArrayToHex(this.#salt);
     }
 
     #encodeData(data) {
@@ -127,7 +129,7 @@ class QuickGCM {
     }
 
     get salt() {
-        return this.#salt;
+        return this.#salt && this.#typedArrayToHex(this.#salt);
     }
 }
 
