@@ -5,12 +5,12 @@ A simple wrapper for the WEB Crypto API, to rapidly use AES-GCM mode encryption 
 This is a very simple JavaScript module that works with Node and also in your browser.
 It encrypts and decrypts strings based on a given password.
 
-It uses PBKDF2 to derive the key based on the given password and it uses AES
+It uses [PBKDF2](https://en.wikipedia.org/wiki/PBKDF2) to derive the key based on the given password and it uses AES
 with [Gallois/Counter Mode](https://en.wikipedia.org/wiki/Galois/Counter_Mode) in order to encrypt data.
 Considering that, every time the encryption method is ran, a different output will be
 evaluated, even when ran for the same combination of string, password and salt.
 
-The output of the encryption is a string in hexadecimal form, where the first 12 bytes
+The output of the encryption is a string in hexadecimal form, where the first **12 bytes**
 represent the [IV](https://en.wikipedia.org/wiki/Initialization_vector) and the following
 bytes represent the encrypted data.
 
@@ -40,7 +40,7 @@ const QuickGCM = require('quickgcm');
 ### For Browsers
 To use in your browser, you can simply use the `quickgcm.js` file removing its last line,
 that contains the export instruction, i.e. `module.exports = QuickGCM;`.
-After doing that, just refer to the file by using a `script` tag or simply copying and
+After doing that, just refer to the file by using a `<script>` tag or simply by copying and
 pasting it inside the browser's console.
 
 # Usage
@@ -80,9 +80,9 @@ const decrypted = await gcm.decrypt(encrypted); // "Decrypted by another instanc
 ```
 
 # Why
-Every now and again I need, for no reason in particular, use some sort of simple string encryption,
-so I have to look ou the [*WEB Crypto API*](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) documentation and build everything from scratch,
-which it's pretty boring. So, I decided to make this simple encryption class in order
+Every now and again I need, for no reason in particular, to use some sort of simple string encryption,
+so I have to look out the [*WEB Crypto API*](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) documentation and build everything from scratch,
+which gets pretty boring. So, I decided to make this simple encryption class in order
 to have a quick and dirty way to encrypt and decrypt strings in JavaScript, regardless
 if I'm working with NodeJS or writing some code for the browser.
 
@@ -92,7 +92,7 @@ and modern encryption mode for AES, and it's used even by high stakes encryption
 such as [TLS v1.2](https://www.ietf.org/rfc/rfc5288.txt)
 
 # How about browser compatibility?
-This module uses *private class methods* and *crypto subtle*, so any browser updated after 2022 should be compatible.
+This module uses **private class methods** and **crypto subtle**, so any browser updated after 2022 should be compatible.
 For more details on compatibility, such as precise dates that each browser started supporting these features,
 check out the compatibility tables linked below, provided my MDN Web Docs.
 
