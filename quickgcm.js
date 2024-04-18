@@ -11,6 +11,10 @@ class QuickGCM {
     constructor() {}
 
     async init(password, salt) {
+        if (password == null) {
+            throw TypeError('Password field must not be null.');
+        }
+
         this.#salt = salt || this.#generateSalt();
         this.#key = await this.#deriveKey(password, this.#salt);
 
