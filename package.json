@@ -1,0 +1,28 @@
+{
+  "name": "quickgcm",
+  "version": "1.0.0",
+  "description": "A simple wrapper for the WEB Crypto API, to rapidly use AES-GCM mode encryption with PBKDF2 for a password",
+  "main": "quickgcm.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pvpscript/quickgcm.git"
+  },
+  "keywords": [
+    "crypto",
+    "cryptosubtle",
+    "subtle",
+    "aes-gcm",
+    "gcm",
+    "pbkdf2",
+    "password"
+  ],
+  "author": "pvpscript",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pvpscript/quickgcm/issues"
+  },
+  "homepage": "https://github.com/pvpscript/quickgcm#readme"
+}
